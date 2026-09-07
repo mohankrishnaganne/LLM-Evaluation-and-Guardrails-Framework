@@ -1,0 +1,139 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "llm-eval-guardrails"
+version = "0.1.0"
+description = "Enterprise LLM evaluation and guardrails framework for RAG applications."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+authors = [{ name = "AI Platform Engineering" }]
+keywords = ["llm", "rag", "evaluation", "guardrails", "bedrock", "mlops"]
+classifiers = [
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Typing :: Typed",
+]
+
+dependencies = [
+  "pydantic>=2.7,<3",
+  "pydantic-settings>=2.3,<3",
+  "structlog>=24.1",
+  "tenacity>=8.3",
+  "boto3>=1.34",
+  "botocore>=1.34",
+  "httpx>=0.27",
+  "typing-extensions>=4.11",
+]
+
+[project.optional-dependencies]
+openai = ["openai>=1.30"]
+pii = ["presidio-analyzer>=2.2", "spacy>=3.7"]
+dev = [
+  "openai>=1.30",  # exercised by the provider-parity tests
+  "pytest>=8.2",
+  "pytest-asyncio>=0.23",
+  "pytest-cov>=5.0",
+  "ruff>=0.5",
+  "mypy>=1.10",
+  "moto[s3]>=5.0",
+  "types-boto3",
+]
+
+[project.scripts]
+llm-eval = "llm_eval_guardrails.workflows.run_evaluation:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/llm_eval_guardrails"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "ARG", "PTH", "RUF", "ANN", "D",
+  "BLE", "SLF", "TRY", "RET", "PL", "ASYNC", "S", "DTZ", "T20", "EM",
+]
+ignore = [
+  "D203",    # incompatible with D211
+  "D213",    # incompatible with D212
+  "ANN401",  # Any is intentional at provider/SDK boundaries
+  "TRY003",  # long messages in raise are clearer than custom exception classes
+  "EM101",   # msg-variable pattern is already used; literal in raise is fine
+  "EM102",
+  "PLR0913", # explicit keyword-only config args are the intended style
+  "PLR0911", # normalisation and CLI dispatch legitimately have many exits
+  "PLR2004", # checksum/HTTP-status literals are clearer inline than as constants
+  "PLC0415", # provider SDKs are imported lazily so optional extras stay optional
+  "TRY301",  # raising inside try is intentional at the CLI error boundary
+  "TRY300",  # trailing return after try reads better than an else block here
+  "N818",    # GuardrailTripped is a control-flow signal, not an error condition
+  "ARG002",  # check/processor signatures are fixed by their interface
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Test code is exempt from documentation and annotation rules: fixtures, stub
+# clients and parametrised cases read better without them, and the strictness
+# that protects the library adds noise here.
+"tests/*" = [
+  "D",       # docstrings
+  "ANN",     # annotations
+  "ARG",     # unused arguments (fixtures, interface-mandated stub params)
+  "S101",    # assert is the point
+  "S105", "S106",  # test tokens are fixtures, not real credentials
+  "SLF001",  # private access is legitimate when testing internals
+  "PLR2004", # magic values are the expected results
+  "B018",    # bare expressions used as availability probes
+  "RUF007",  # zip(x, x[1:]) is clearer than pairwise in assertions
+  "RUF043",  # pytest match= patterns are intentionally loose substrings
+  # Full-width and zero-width characters are the subject of the evasion tests,
+  # so "ambiguous unicode" is precisely what those strings must contain.
+  "RUF001", "RUF002", "RUF003",
+]
+"src/llm_eval_guardrails/workflows/run_evaluation.py" = ["T201"]  # CLI prints its report
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src", "tests"]
+strict = true
+warn_unreachable = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["boto3.*", "botocore.*", "presidio_analyzer.*", "moto.*", "openai.*"]
+ignore_missing_imports = true
+
+# Tests are still type-checked, but not at the strictness applied to the
+# library: fixtures, stub clients and parametrised cases are clearer without
+# exhaustive annotations, and stubs deliberately model only the slice of a
+# vendor SDK that the code under test touches.
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+disallow_untyped_decorators = false
+disallow_any_generics = false
+disallow_subclassing_any = false
+warn_return_any = false
+warn_unused_ignores = false
+check_untyped_defs = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-q --strict-markers --cov=llm_eval_guardrails --cov-report=term-missing"
+markers = ["integration: requires live AWS or LLM credentials"]
+
+[tool.coverage.run]
+branch = true
+source = ["src/llm_eval_guardrails"]

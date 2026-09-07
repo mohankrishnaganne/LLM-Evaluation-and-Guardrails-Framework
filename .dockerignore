@@ -1,0 +1,36 @@
+# Keep the build context minimal: it is uploaded to the daemon on every build
+# and anything listed here can never leak into an image layer.
+.git
+.github
+.gitignore
+.venv
+venv
+env
+tests
+reports
+*.md
+!README.md
+
+__pycache__
+*.py[cod]
+*.egg-info
+.eggs
+build
+dist
+
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+.coverage.*
+coverage.xml
+htmlcov
+
+# Secrets and local configuration must never enter the build context.
+.env
+.env.*
+*.pem
+*.key
+.aws
+.idea
+.vscode
